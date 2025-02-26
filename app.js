@@ -1,39 +1,24 @@
-
 let synth = new Tone.Synth({
     oscillator: {
         type: "sine" 
     }
 }).toDestination();
 
-const playTuneRed = (delay) => {
-    const now = Tone.now();
-    synth.triggerAttackRelease("C4", "6n", now + delay);
+const NOTES = {
+    red: "C4",
+    yellow: "D4",
+    green: "E4",
+    blue: "F4"
 };
 
-const playTuneYellow = (delay) => {
+const playTuneForColor = (color, delay) => {
     const now = Tone.now();
-    synth.triggerAttackRelease("D4", "6n", now + delay);
+    synth.triggerAttackRelease(NOTES[color], "6n", now + delay);
 };
-
-const playTuneGreen = (delay) => {
-    const now = Tone.now();
-    synth.triggerAttackRelease("E4", "6n", now + delay);
-};
-const playTuneBlue = (delay) => {
-    const now = Tone.now();
-    synth.triggerAttackRelease("F4", "6n", now + delay);
-};
-
 
 const playToneFromColor = (color, delay) => {
-    if (color === "red") {
-        return playTuneRed(delay);
-    } else if (color === "yellow") {
-        return playTuneYellow(delay);
-    } else if (color === "green") {
-        return playTuneGreen(delay);
-    } else if (color === "blue") {
-        return playTuneBlue(delay);
+    if (NOTES.hasOwnProperty(color)) {
+        return playTuneForColor(color, delay);
     }
 };
 
@@ -67,8 +52,6 @@ const logPadClick = (event) => {
     }
     const [color, pad] = getPadFromUserInput(event);
 
-    console.log(pad)
-
     user_input.sequence.push(color);
     
     playToneFromColor(color, delay=0);
@@ -82,22 +65,20 @@ const startGame = () => {
     playSequence(server_data.sequence);
     startButton.disabled = !startButton.disabled;
     replayButton.disabled = !replayButton.disabled;
-    console.log(server_data.sequence);
 
 }
 
 const checkSequence = async () => {
-    console.log(user_input.sequence.length, current_level);
     if (user_input.sequence.length === current_level) {
         
         const response = await validateSequence(user_input);
         
-        if (response.status === 200) {
+        if (response.status >= 200 && response.status < 300) {
             high_score_element.innerHTML = response.data.gameState.highScore;
             setTimeout(() => playSequence(server_data.sequence), 1250);
         }
         
-        else if (response.status === 400) {
+        else if (response.status >= 400) {
             displayFailureModal();
         }
         
@@ -105,7 +86,6 @@ const checkSequence = async () => {
         server_data.sequence = response.data.gameState.sequence;
         current_level = response.data.gameState.level;
         document.getElementById("level-indicator").innerHTML = current_level;
-        console.log(server_data.sequence);
     }
 }
 
@@ -124,10 +104,12 @@ const playSequence = (sequence) => {
     let delay = 0;
     sequence.forEach((color) => {
         const current_pad = document.getElementById(`pad-${color}`)
-        setTimeout( () => current_pad.classList.add("active"), 1000*delay);
+        const play_delay = 1000 
+        const remove_delay = 900
+        setTimeout( () => current_pad.classList.add("active"), play_delay*delay);
         playToneFromColor(color, delay);
         delay += 0.5;
-        setTimeout( () => current_pad.classList.remove("active"), 900*delay);
+        setTimeout( () => current_pad.classList.remove("active"), remove_delay*delay);
     }) 
 };
 
@@ -157,6 +139,10 @@ const initialGameState = async () => {
     current_level = game.data.gameState.level;
     document.getElementById("level-indicator").innerHTML = current_level;
     server_data.sequence = game.data.gameState.sequence;
+
+    synth.oscillator.type = "sine";
+    document.getElementById("sound-select").value = "sine";
+    
     startButton.disabled = false;
     replayButton.disabled = true;
 
@@ -183,13 +169,8 @@ soundSelect.addEventListener("change", (event) => {
 const initializeGame = async () => {
     const url = "http://localhost:3000/api/v1/game-state";
 
-
-    //Perform a PUT request to the url
     try {
         const response = await axios.put(url);
-        //When successful, print the received data
-        console.log("Success: ", response.data);
-
         server_data.sequence = response.data.gameState.sequence;
         current_level = response.data.gameState.level;
         document.getElementById("level-indicator").innerHTML = current_level;
@@ -210,7 +191,6 @@ const validateSequence = async (sequence_object) => {
         return {status: response.status, data: response.data};
     }
     catch (error) {
-        console.log(error);
         return {status: error.response.status, data: error.response.data};
     }
 }
